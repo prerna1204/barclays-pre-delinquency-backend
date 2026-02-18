@@ -1,5 +1,3 @@
-# api.py
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
@@ -23,9 +21,22 @@ def home():
 @app.post("/run-analysis")
 def run_analysis():
 
+    # Run pipeline
     run_pipeline()
 
+    # Load final CSV
     df = pd.read_csv("final_output.csv")
+
+    # Rename CSV columns for frontend
+    df = df.rename(columns={
+        "customer_id": "id",
+        "salary_delay": "salaryDelayDays",
+        "credit_utilization": "creditUtilization",
+        "emi_to_income": "emiToIncomeRatio",
+        "risk_score": "riskScore",
+        "composite_index": "compositeRiskIndex",
+        "risk_category": "riskCategory"
+    })
 
     return {
         "status": "Success",
