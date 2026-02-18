@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
+
 from main import run_pipeline
 
 app = FastAPI(title="Pre-Delinquency Risk API")
@@ -26,15 +27,45 @@ def run_analysis():
     # Run pipeline
     run_pipeline()
 
-    # Load CSV
-    df = pd.read_csv("final_output.csv")
+    # Load base customer data
+    base_df = pd.read_csv("customer_data.csv")
 
-    # 🔹 DEBUG: show real column names
-    print("CSV COLUMNS:", list(df.columns))
+    # Load ML output
+    ml_df = pd.read_csv("final_output.csv")
+
+    # Merge on id
+    df = pd.merge(
+        base_df,
+        ml_df,
+        on="id",
+        how="left"
+    )
+
+    # Standardize column names for frontend
+    df = df.rename(columns={
+
+        # Base CSV
+        "id": "customerId",
+        "salary_delay": "salaryDelayDays",
+        "credit_util": "creditUtilization",
+        "emi_ratio": "emiToIncomeRatio",
+        "risk_score": "riskScore",
+        "composite_index": "compositeRiskIndex",
+        "financial_stress": "financialStress",
+
+        # ML output
+        "risk_probability": "riskProbability",
+        "risk_category": "riskCategory",
+        "recommended_action": "recommendedAction"
+
+    })
+
+    # Optional: Fill missing values
+    df = df.fillna(0)
 
     return {
         "status": "Success",
-        "columns": list(df.columns),   # <-- send columns to frontend
         "total_customers": len(df),
-        "data": df.to_dict(orient="records"),
+        "columns": list(df.columns),
+        "data": df.to_dict(orient="records")
     }
