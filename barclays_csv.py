@@ -5,61 +5,61 @@ import pandas as pd
 
 def generate_decisions():
 
-    # Load previous outputs
-    base_data = pd.read_csv("customer_data.csv")
-    predictions = pd.read_csv("ml_predictions.csv")
+    # Load raw customer data
+    raw_df = pd.read_csv("customer_data.csv")
 
-    final_rows = []
+    # Load ML prediction output
+    ml_df = pd.read_csv("ml_output.csv")
 
-    for i in range(len(base_data)):
+    # Merge both on customer_id
+    df = pd.merge(raw_df, ml_df, on="customer_id", how="inner")
 
-        row_base = base_data.iloc[i]
-        row_pred = predictions.iloc[i]
+    # Calculate composite risk index (example formula)
+    df["composite_risk_index"] = (
+        (df["risk_probability"] * 0.4)
+        + (df["credit_utilization"] * 0.3)
+        + (df["emi_to_income_ratio"] * 0.3)
+    ).round(2)
 
-        risk_prob = row_pred["risk_probability"]
-
-        # Risk Category
-        if risk_prob >= 0.7:
-            risk_category = "High"
-            action = "Immediate Relationship Manager Outreach"
-            stress = "Stressed"
-
-        elif risk_prob >= 0.4:
-            risk_category = "Medium"
-            action = "Financial Counseling"
-            stress = "Moderate"
-
+    # Financial stress classification
+    def stress_label(row):
+        if row["composite_risk_index"] >= 0.7:
+            return "High"
+        elif row["composite_risk_index"] >= 0.4:
+            return "Moderate"
         else:
-            risk_category = "Low"
-            action = "Continuous Monitoring"
-            stress = "Stable"
+            return "Low"
 
-        final_row = {
-            "customer_id": int(row_base["customer_id"]),
+    df["financial_stress"] = df.apply(stress_label, axis=1)
 
-            "salary_delay_days": int(row_base["salary_delay_days"]),
+    # Recommended actions
+    def recommend(row):
+        if row["risk_category"] == "High":
+            return "Immediate Relationship Manager Outreach"
+        elif row["risk_category"] == "Medium":
+            return "Targeted Financial Counseling"
+        else:
+            return "Continuous Monitoring"
 
-            "credit_utilization": float(row_base["credit_utilization"]),
+    df["recommended_action"] = df.apply(recommend, axis=1)
 
-            "emi_to_income_ratio": float(row_base["emi_to_income_ratio"]),
+    # Select final columns
+    final_df = df[
+        [
+            "customer_id",
+            "salary_delay_days",
+            "credit_utilization",
+            "emi_to_income_ratio",
+            "risk_score",
+            "risk_probability",
+            "risk_category",
+            "composite_risk_index",
+            "financial_stress",
+            "recommended_action",
+        ]
+    ]
 
-            "risk_score": int(row_base["risk_score"]),
-
-            "composite_risk_index": round(float(row_base["composite_risk_index"]), 2),
-
-            "risk_probability": round(float(risk_prob), 2),
-
-            "risk_category": risk_category,
-
-            "financial_stress": stress,
-
-            "recommended_action": action,
-        }
-
-        final_rows.append(final_row)
-
-    final_df = pd.DataFrame(final_rows)
-
+    # Save final output
     final_df.to_csv("final_output.csv", index=False)
 
     print("final_output.csv generated successfully")
