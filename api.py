@@ -3,8 +3,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
-
 from main import run_pipeline
+
 
 app = FastAPI(title="Pre-Delinquency Risk API")
 
@@ -27,45 +27,48 @@ def run_analysis():
     # Run pipeline
     run_pipeline()
 
-    # Load base customer data
-    base_df = pd.read_csv("customer_data.csv")
+    # Load CSV
+    df = pd.read_csv("final_output.csv")
 
-    # Load ML output
-    ml_df = pd.read_csv("final_output.csv")
+    # Add missing columns safely (if not present)
 
-    # Merge on id
-    df = pd.merge(
-        base_df,
-        ml_df,
-        on="id",
-        how="left"
-    )
+    if "salary_delay_days" not in df.columns:
+        df["salary_delay_days"] = 0
 
-    # Standardize column names for frontend
-    df = df.rename(columns={
+    if "credit_utilization" not in df.columns:
+        df["credit_utilization"] = 0.0
 
-        # Base CSV
-        "id": "customerId",
-        "salary_delay": "salaryDelayDays",
-        "credit_util": "creditUtilization",
-        "emi_ratio": "emiToIncomeRatio",
-        "risk_score": "riskScore",
-        "composite_index": "compositeRiskIndex",
-        "financial_stress": "financialStress",
+    if "emi_to_income_ratio" not in df.columns:
+        df["emi_to_income_ratio"] = 0.0
 
-        # ML output
-        "risk_probability": "riskProbability",
-        "risk_category": "riskCategory",
-        "recommended_action": "recommendedAction"
+    if "risk_score" not in df.columns:
+        df["risk_score"] = (df["risk_probability"] * 100).round().astype(int)
 
-    })
+    if "composite_risk_index" not in df.columns:
+        df["composite_risk_index"] = (
+            df["risk_probability"] * 0.7 +
+            df["credit_utilization"] * 0.2 +
+            df["emi_to_income_ratio"] * 0.1
+        ).round(2)
 
-    # Optional: Fill missing values
-    df = df.fillna(0)
+    if "financial_stress" not in df.columns:
+
+        def stress_mapper(row):
+            if row["risk_category"] == "High":
+                return "Stressed"
+            elif row["risk_category"] == "Medium":
+                return "Moderate"
+            else:
+                return "Stable"
+
+        df["financial_stress"] = df.apply(stress_mapper, axis=1)
+
+    # Save updated CSV
+    df.to_csv("final_output.csv", index=False)
 
     return {
         "status": "Success",
         "total_customers": len(df),
         "columns": list(df.columns),
-        "data": df.to_dict(orient="records")
+        "data": df.to_dict(orient="records"),
     }
