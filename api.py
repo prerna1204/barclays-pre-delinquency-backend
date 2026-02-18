@@ -26,27 +26,15 @@ def run_analysis():
     # Run pipeline
     run_pipeline()
 
-    # Read final CSV
+    # Load CSV
     df = pd.read_csv("final_output.csv")
 
-    # Rename CSV columns to match frontend
-    df = df.rename(columns={
-        "customer_id": "id",
-        "salary_delay_days": "salaryDelayDays",
-        "credit_utilization": "creditUtilization",
-        "emi_to_income_ratio": "emiToIncomeRatio",
-        "risk_score": "riskScore",
-        "composite_risk_index": "compositeRiskIndex",
-        "risk_category": "riskCategory",
-        "recommended_action": "recommendedAction",
-        "financial_stress_status": "financialStressStatus"
-    })
-
-    # Convert to JSON
-    data = df.to_dict(orient="records")
+    # 🔹 DEBUG: show real column names
+    print("CSV COLUMNS:", list(df.columns))
 
     return {
         "status": "Success",
+        "columns": list(df.columns),   # <-- send columns to frontend
         "total_customers": len(df),
-        "data": data
+        "data": df.to_dict(orient="records"),
     }
