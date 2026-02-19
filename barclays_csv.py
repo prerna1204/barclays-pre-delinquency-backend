@@ -23,54 +23,53 @@ def generate_decisions():
 
     print("Generating decisions...")
 
-    # Load ML output file
+    # Load ML output
     df = pd.read_csv("customer_data.csv")
 
-    print("Columns before processing:", df.columns.tolist())
+    print("Initial columns:", df.columns.tolist())
 
-    # -----------------------------
-    # Create risk_score if missing
-    # -----------------------------
+    # -------------------------
+    # Create risk_score safely
+    # -------------------------
     if "risk_score" not in df.columns:
 
         if "risk_probability" in df.columns:
             df["risk_score"] = (df["risk_probability"] * 100).round().astype(int)
-            print("risk_score created from risk_probability")
+            print("risk_score generated from risk_probability")
 
         else:
-            # Fallback safety
             df["risk_score"] = 50
             print("Default risk_score assigned")
 
-    # -----------------------------
+    # -------------------------
     # Create risk_category
-    # -----------------------------
+    # -------------------------
     df["risk_category"] = df["risk_score"].apply(get_risk_category)
 
-    # -----------------------------
-    # Create recommended_action
-    # -----------------------------
+    # -------------------------
+    # Recommended action
+    # -------------------------
     df["recommended_action"] = df.apply(recommend, axis=1)
 
-    # -----------------------------
-    # Add missing optional columns safely
-    # -----------------------------
-    optional_cols = [
-        "salary_delay_days",
-        "credit_utilization",
-        "emi_to_income_ratio",
-        "financial_stress",
-        "composite_risk_index"
-    ]
+    # -------------------------
+    # Add missing columns
+    # -------------------------
+    default_columns = {
+        "salary_delay_days": 0,
+        "credit_utilization": 0,
+        "emi_to_income_ratio": 0,
+        "financial_stress": 0,
+        "composite_risk_index": 0,
+    }
 
-    for col in optional_cols:
+    for col, default in default_columns.items():
         if col not in df.columns:
-            df[col] = 0
-            print(f"{col} added as default")
+            df[col] = default
+            print(f"{col} added with default value")
 
-    # -----------------------------
-    # Final columns order
-    # -----------------------------
+    # -------------------------
+    # Final Output
+    # -------------------------
     final_df = df[
         [
             "customer_id",
@@ -86,7 +85,6 @@ def generate_decisions():
         ]
     ]
 
-    # Save output
     final_df.to_csv("final_output.csv", index=False)
 
     print("final_output.csv generated successfully")
