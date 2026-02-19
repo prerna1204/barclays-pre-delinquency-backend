@@ -1,16 +1,13 @@
-# api.py
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
+import os
 
 from main import run_pipeline
 
-
 app = FastAPI(title="Pre-Delinquency Risk API")
 
-
-# Enable CORS (for frontend access)
+# Allow frontend access
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,26 +16,48 @@ app.add_middleware(
 )
 
 
-# Health check
 @app.get("/")
 def home():
     return {"message": "Risk Intelligence API Running"}
 
 
-# Main API endpoint
 @app.post("/run-analysis")
 def run_analysis():
 
-    # Run full backend pipeline
-    run_pipeline()
+    try:
+        # Step 1: Run pipeline (creates CSV)
+        run_pipeline()
 
-    # Load final CSV
-    df = pd.read_csv("final_output.csv")
+        file_path = "final_output.csv"
 
-    # Return complete structured data
-    return {
-        "status": "Success",
-        "columns": list(df.columns),
-        "total_customers": len(df),
-        "data": df.to_dict(orient="records"),
-    }
+        # Step 2: Check if file exists
+        if not os.path.exists(file_path):
+            return {
+                "status": "Error",
+                "message": "final_output.csv not found after pipeline run"
+            }
+
+        # Step 3: Read CSV
+        df = pd.read_csv(file_path)
+
+        # Step 4: Handle empty file
+        if df.empty:
+            return {
+                "status": "Error",
+                "message": "final_output.csv is empty"
+            }
+
+        # Step 5: Return safe response
+        return {
+            "status": "Success",
+            "columns": list(df.columns),
+            "total_customers": len(df),
+            "data": df.to_dict(orient="records"),
+        }
+
+    except Exception as e:
+        # Never crash → always return error message
+        return {
+            "status": "Error",
+            "message": str(e)
+        }
