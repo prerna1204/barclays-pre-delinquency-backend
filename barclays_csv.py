@@ -1,62 +1,76 @@
-# barclays_csv.py
-
 import pandas as pd
+
+
+def get_risk_category(score):
+    if score >= 80:
+        return "High"
+    elif score >= 50:
+        return "Medium"
+    else:
+        return "Low"
+
+
+def recommend(row):
+    if row["risk_category"] == "High":
+        return "Immediate Relationship Manager Outreach"
+    elif row["risk_category"] == "Medium":
+        return "Targeted Financial Counseling"
+    else:
+        return "Continuous Monitoring"
 
 
 def generate_decisions():
 
-    # Read previous stage data
-    try:
-        df = pd.read_csv("customer_data.csv")
-    except:
-        raise Exception("customer_data.csv not found. Pipeline failed.")
+    print("Generating decisions...")
 
-    # Generate Risk Category
-    def get_risk_category(score):
-        if score >= 75:
-            return "High"
-        elif score >= 40:
-            return "Medium"
+    # Load ML output file
+    df = pd.read_csv("customer_data.csv")
+
+    print("Columns before processing:", df.columns.tolist())
+
+    # -----------------------------
+    # Create risk_score if missing
+    # -----------------------------
+    if "risk_score" not in df.columns:
+
+        if "risk_probability" in df.columns:
+            df["risk_score"] = (df["risk_probability"] * 100).round().astype(int)
+            print("risk_score created from risk_probability")
+
         else:
-            return "Low"
+            # Fallback safety
+            df["risk_score"] = 50
+            print("Default risk_score assigned")
 
-    # Generate Recommended Action
-    def recommend(row):
-        if row["risk_category"] == "High":
-            return "Immediate Relationship Manager Outreach"
-        elif row["risk_category"] == "Medium":
-            return "Targeted Financial Counseling"
-        else:
-            return "Continuous Monitoring"
-
-    # Risk Category
+    # -----------------------------
+    # Create risk_category
+    # -----------------------------
     df["risk_category"] = df["risk_score"].apply(get_risk_category)
 
-    # Risk Probability (simple normalized version)
-    df["risk_probability"] = df["risk_score"] / 100
-
-    # Composite Risk Index
-    df["composite_risk_index"] = (
-        0.3 * df["credit_utilization"] +
-        0.3 * df["emi_to_income_ratio"] +
-        0.4 * df["risk_probability"]
-    )
-
-    # Financial Stress
-    def stress_status(row):
-        if row["risk_score"] >= 75:
-            return "Stressed"
-        elif row["risk_score"] >= 40:
-            return "Moderate"
-        else:
-            return "Stable"
-
-    df["financial_stress"] = df.apply(stress_status, axis=1)
-
-    # Recommended Action
+    # -----------------------------
+    # Create recommended_action
+    # -----------------------------
     df["recommended_action"] = df.apply(recommend, axis=1)
 
-    # Final Columns
+    # -----------------------------
+    # Add missing optional columns safely
+    # -----------------------------
+    optional_cols = [
+        "salary_delay_days",
+        "credit_utilization",
+        "emi_to_income_ratio",
+        "financial_stress",
+        "composite_risk_index"
+    ]
+
+    for col in optional_cols:
+        if col not in df.columns:
+            df[col] = 0
+            print(f"{col} added as default")
+
+    # -----------------------------
+    # Final columns order
+    # -----------------------------
     final_df = df[
         [
             "customer_id",
@@ -72,7 +86,7 @@ def generate_decisions():
         ]
     ]
 
-    # Save Final Output
+    # Save output
     final_df.to_csv("final_output.csv", index=False)
 
-    print("final_output.csv generated successfully with full columns")
+    print("final_output.csv generated successfully")
